@@ -8,8 +8,8 @@ bucket_name = st.secrets["client_bucket"]['BUCKET_name']
 #LOCAT
 username_input_text = ["Käyttäjätunnus","Username"]
 password_input_text = ["Salasana","Password"]
-incorrect_warning = ["😕 Käyttäjä tai tunnus on väärin","😕 User not known or password incorrect"]
-testuser_max_error = ['😕 Testikäyttömäärä on ylittynyt!','😕 Test usage limit reached!']
+incorrect_warning = ["Käyttäjä tai tunnus on väärin","User not known or password incorrect"]
+testuser_max_error = ['Testikäyttömäärä on ylittynyt!','Test usage limit reached!']
 
 #simple auth
 def check_password(lin=0):

@@ -9,7 +9,7 @@ import open_utils, qissa_utils, viz
 client_page_title = "Example Company"
 client_bucket_url = st.secrets['client_bucket']['BUCKET_url']
 bucket_name = st.secrets["client_bucket"]['BUCKET_name']
-client_logo_url = "https://" + client_bucket_url + "/" + bucket_name + '/media/logo_holder.png'
+client_logo_url = "https://" + client_bucket_url + "/" + bucket_name + '/media/Q-logo_black.png'
 default_lang = "FIN"
 
 client_bg_image_url = "https://" + client_bucket_url + "/" + bucket_name + "/appbackgrounds/background_01.png"
@@ -64,16 +64,20 @@ qissa_footer_badge_text = ["Kaupunkiarkkitehtuurin_analytiikkaa",
                       "Urban_architectural_analytics"]
 signin_text = ['Kirjaudu sisään!','Sign in!']
 
-signed_in_text = ['Tervetuloa!','Welcome!']
-datasource_expander = ['Suunnitelma','My plan']
-address_input_title = ['Kohdeosoite','Case address']
+signed_in_title = ['Tervetuloa!','Welcome!']
+signed_in_ingress = ['Tällä demolla voit testata miten helppoa on tarkastella kaavoituksen todellisia vaikutuksia!',
+                     'With this demo app you can test how easy it is to analyze true urban design impacts!']
+signed_in_subingress = ['Jokainen projektiappi räätälöidään asiakkaan tai hankkeen graafisen ilmeen ja analyysitarpeiden mukaan. :ok_hand:',
+                        'Each project app is tailored & updated by the brand image and analysis needs of the client or project. :ok_hand:']
 
-tab_titles = [['Väestökasvu','Ihmisvirrat','Hiilijalanjälki','..Tai mikä vain hankekohtainen analyysitarve!'],
-              ['Population growth','People flows','Corbon footprint','..Or any case based analytics you need!']]
+tab_titles = [['Väestökasvu','Ihmisvirrat','Hiilijalanjälki','..Tai mikä vain asiakaskohtainen analyysitarve!'],
+              ['Population growth','People flows','Corbon footprint','..Or any client based analytics you need!']]
 
-not_plan_warning = [':point_up: Tuo/luo ensin suunnitelma!',':point_up: Upload or create a plan to get base analytics!']
+not_plan_warning = [':point_up: Tee tai tuo ensin suunnitelma!',':point_up: Upload or create a plan to get base analytics!']
 not_available_warning = ['Lisää analytiikkateemoja tarpeen mukaan! :muscle:',
                          'Get more analytics in your app as needed! :muscle:']
+more_info_text = ['Pyydä lisätietoja tai sovi esittely :point_right: office@qissa.fi',
+                  'For more info ask anything :point_right: office@qissa.fi']
 
 # ------- HEADER -----------
 
@@ -103,14 +107,17 @@ header_holder.header(client_app_name[lin],divider="orange")
 client_name_holder.markdown(f"**{client_name[lin]}**")
 
 st.markdown('###')
-st.markdown("###")
 singin_holder = st.container()
 auth_check = open_utils.check_password(lin=lin)
 
 if not auth_check:
     singin_holder.subheader(signin_text[lin])
 else:
-    singin_holder.subheader(signed_in_text[lin])
+    with singin_holder:
+        st.subheader(signed_in_title[lin])
+        st.subheader(signed_in_ingress[lin])
+        st.markdown(signed_in_subingress[lin])
+        st.markdown('###')
 
 # ------- CLIENT CONTENT -----------
 
@@ -120,12 +127,12 @@ if auth_check:
         st.stop()
 
     #LOCAT
-    data_source_selector = ['','']
-    plan_selection = ['Lataa viitesuunnitelma','Load master plan']
-    slider_selection = ['Tee mitoituskonsepti','Prepare volume concept']
 
     #loader
     data_source_expander_title = ['Suunnitelmatieto','Urban design data']
+    data_source_selector = ['','']
+    plan_selection = ['Lataa viitesuunnitelma','Load master plan']
+    slider_selection = ['Tee mitoituskonsepti','Prepare volume concept']
     file_uploader_title = ['Lataa suunnitelma','Load plan']
     uploaded_file_warning_zip = ['Suunnitelma tulee olla shapefile-muodossa pakattuna zip-tiedostoon.',
                                  'Plan must be in shapefile-format in zip-file']
@@ -151,6 +158,7 @@ if auth_check:
     policy_string_error = ['Politiikkamuotoilu on väärin','Policy statement is malformed']
     min_unit_size_error = ['Minimi asuntokoko on 21 m2','Minimum unit size is 21 m2']
     policy_input_title = ['Politiikkamuotoilu','Policy statement']
+    policy_caption_text = ['Muuta numeroita, mutta pidä muotoilu samana.','Refine numbers but keep the format.']
     
     #for uploaded data
     building_type_info = ['Rakennustyyppitieto','Building type info']
@@ -173,13 +181,13 @@ if auth_check:
     #for metrics
     pop_growth_text = ['Väestökasvu','Population growth']
     segregation_index = ['Segregaatioindeksi','Segregation index']
-    custom_metric_text = ['Tai mikä vain asiakas/hankekohtainen mittari..','Or any client/project based metrics..']
+    custom_metric_text = ['Tai mikä vain asiakaskohtainen mittari..','Or any client based metrics..']
 
     #data source expander
-    with st.expander(datasource_expander[lin], expanded=False):
+    with st.expander(data_source_expander_title[lin], expanded=True):
         ds1, ds2 = st.columns(2)
-        data_source_selection = ds1.radio(data_source_selector[lin],[plan_selection[lin],slider_selection[lin]])
-        st.markdown('---')
+        data_source_selection = ds1.radio(data_source_selector[lin],[slider_selection[lin],plan_selection[lin]])
+        
         uploaded_file = None
         residential_buildings_dict = None
         network = None
@@ -264,6 +272,7 @@ if auth_check:
 
             #or use demo plan..
             if use_demo_plan and uploaded_file is None:
+                st.markdown('---')
                 #fetch demo file
                 demo_file = qissa_utils.get_demo_file(demo_name='demo_plan_V1')
                 buildings, plan_name = qissa_utils.extract_shapefiles_and_filenames_from_zip(demo_file,'Polygon')
@@ -284,6 +293,7 @@ if auth_check:
                 residential_buildings_dict = plan_to_dict(buildings_in=buildings,my_type='kaava',my_gfa='kerrosala', type_value_dict=demo_type_value_dict)
 
         else: #using sliders..
+            st.markdown('---')
             st.subheader(volume_concept_title[lin])
             s1,s2 = st.columns(2)    
             one_family_house_vol = s1.slider(one_family_house_vol_title[lin], 0, 10000, 2000, step=1000)
@@ -333,14 +343,14 @@ if auth_check:
             default_policy = ["Kerrostaloissa asunnoista 30 % tulee olla yli 40 m2 ja 20 % yli 80 m2. Pientaloissa asunnoista 50 % tulee olla yli 70 m2 ja 10 % yli 100 m2.",
                               "In apartment-condos 30 % of apartments must be over 40 m2 and 20 % over 80 m2. For multi/family-houses 50 % must be over 60 m2 and 10 % over 100 m2."]        
             policy_string = st.text_input(label=policy_input_title[lin],value=default_policy[lin],max_chars=150)
-            
+            st.caption(policy_caption_text[lin])
+
             def extract_numbers(input_string):
                 numbers = re.findall(r'\b\d{1,3}\D?', input_string)
                 return [int(re.findall(r'\d+', num)[0]) for num in numbers]
             
             my_policy_nums = extract_numbers(policy_string)
             
-            #check policy
             def gfas_greater_than_20(numbers):
                 # Iterate over every second item starting from index 1
                 for i in range(1, len(numbers), 2):
@@ -348,13 +358,14 @@ if auth_check:
                         return False
                 return True
             
-            if not gfas_greater_than_20(my_policy_nums):
-                st.warning(min_unit_size_error[lin])
-                st.stop()
-
+            #check policy
             if len(my_policy_nums) != 8:
                 st.warning(policy_string_error[lin])
                 st.stop()
+            else:
+                if not gfas_greater_than_20(my_policy_nums):
+                    st.warning(min_unit_size_error[lin])
+                    st.stop()
 
             my_unit_size_policy = {
                 'multi-family-house': [my_policy_nums[0], my_policy_nums[1], my_policy_nums[2], my_policy_nums[3]],
@@ -431,15 +442,20 @@ if auth_check:
                 m1.metric(label=f"{pop_growth_text[lin]}, {pre_con_sim_time[1]} {yr[lin]}", value=f"{tot_pop:.0f}", delta=f"{cons_share:.0f} %") #m²
                 m2.metric(label=segregation_index[lin], value=f"{seg_ero}", delta=f"D={seg_ind}")
                 m3.metric(label=custom_metric_text[lin], value=42, delta=+3.14)
+
+                #more info
+                st.success(more_info_text[lin])
         else:
-             st.success(not_plan_warning[lin])
+             st.warning(not_plan_warning[lin])
+        
             
     with tab2:
-        st.success(not_available_warning[lin])
+        st.warning(not_available_warning[lin])
     with tab3:
-        st.success(not_available_warning[lin])
+        st.warning(not_available_warning[lin])
     with tab4:
-        st.success(not_available_warning[lin])
+        st.warning(not_available_warning[lin])
+    
 
 #footer
 st.markdown('###')

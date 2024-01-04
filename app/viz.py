@@ -16,7 +16,7 @@ my_style = st.secrets["mapbox"]['MAPBOX_qissa_default'] #..'MAPBOX_qissa_default
 def simulation_plot(sim_df,init_df=None,lin=0):
     #LOCAT
     yaxis_title_left = ['Vuosiasuntotuotanto (kem²)','Residential production (GFA)']
-    yaxis_title_right = ['Asukasmäärä','Population']
+    yaxis_title_right = ['Asukasmäärä asuntokunnittain','Population by household']
     xaxis_title = ['Vuosi','Year']
     # translation of items
     col_translations = {
