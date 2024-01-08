@@ -6,7 +6,7 @@ import re
 import open_utils, qissa_utils, viz
 
 # --------- CLIENT CONFIGS ---------------
-client_page_title = "Example Company"
+client_page_title = "Qissa Company Demo App"
 client_bucket_url = st.secrets['client_bucket']['BUCKET_url']
 bucket_name = st.secrets["client_bucket"]['BUCKET_name']
 client_logo_url = "https://" + client_bucket_url + "/" + bucket_name + '/media/Q-logo_black.png'
@@ -108,23 +108,33 @@ client_name_holder.markdown(f"**{client_name[lin]}**")
 
 st.markdown('###')
 singin_holder = st.container()
-auth_check = open_utils.check_password(lin=lin)
 
-if not auth_check:
-    singin_holder.subheader(signin_text[lin])
+#check campaign & auth
+url_params = st.experimental_get_query_params()
+try:
+    campaign = url_params.get('campaign')[0]
+except:
+    campaign = False
+
+if not campaign:
+    auth_check = open_utils.check_password(lin=lin)
+    if not auth_check:
+        singin_holder.subheader(signin_text[lin])
+    else:
+        with singin_holder:
+            st.subheader(signed_in_title[lin])
+            st.subheader(signed_in_ingress[lin])
+            st.markdown(signed_in_subingress[lin])
+            st.markdown('###')
 else:
-    with singin_holder:
-        st.subheader(signed_in_title[lin])
-        st.subheader(signed_in_ingress[lin])
-        st.markdown(signed_in_subingress[lin])
-        st.markdown('###')
+    auth_check = True
 
 # ------- CLIENT CONTENT -----------
 
 if auth_check:
-
-    if not open_utils.check_test_query_count(max=25,lin=lin):
-        st.stop()
+    if campaign:
+        if not open_utils.check_test_query_count(max=25,lin=lin):
+            st.stop()
 
     #LOCAT
 
