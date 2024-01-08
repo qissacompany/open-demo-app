@@ -123,7 +123,7 @@ else:
 
 if auth_check:
 
-    if not open_utils.check_test_query_count(max=20,lin=lin):
+    if not open_utils.check_test_query_count(max=25,lin=lin):
         st.stop()
 
     #LOCAT
@@ -156,7 +156,7 @@ if auth_check:
     #for policy
     unit_size_policy_selection = ['Käytä asuntokoon ohjauspolitiikkaa','Apply unit size policy']
     policy_string_error = ['Politiikkamuotoilu on väärin','Policy statement is malformed']
-    min_unit_size_error = ['Minimi asuntokoko on 21 m2','Minimum unit size is 21 m2']
+    unit_size_range_error = ['Asuntokoot on oltava 25-100 m2 ja prosentit yht. max 100%','Unit size range is 25-100 m2 and percentage sum max 100']
     policy_input_title = ['Politiikkamuotoilu','Policy statement']
     policy_caption_text = ['Muuta numeroita, mutta pidä muotoilu samana.','Refine numbers but keep the format.']
     
@@ -180,6 +180,7 @@ if auth_check:
 
     #for metrics
     pop_growth_text = ['Väestökasvu','Population growth']
+    avg_unit_size_title = ['Asuntojen keskikoko','Average unit size']
     segregation_index = ['Segregaatioindeksi','Segregation index']
     custom_metric_text = ['Tai mikä vain asiakaskohtainen mittari..','Or any client based metrics..']
 
@@ -351,25 +352,37 @@ if auth_check:
             
             my_policy_nums = extract_numbers(policy_string)
             
-            def gfas_greater_than_20(numbers):
-                # Iterate over every second item starting from index 1
-                for i in range(1, len(numbers), 2):
-                    if numbers[i] <= 20:
-                        return False
-                return True
-            
-            #check policy
-            if len(my_policy_nums) != 8:
-                st.warning(policy_string_error[lin])
-                st.stop()
-            else:
-                if not gfas_greater_than_20(my_policy_nums):
-                    st.warning(min_unit_size_error[lin])
+            def check_policy_numbers(numbers):
+                if len(numbers) != 8:
+                    st.warning(policy_string_error[lin])
                     st.stop()
 
+                # Check x values for apartments (at indices 0 and 2)
+                sum_x_values_apartments = numbers[0] + numbers[2]
+                if any(x < 0 or x > 100 for x in [numbers[0], numbers[2]]) or sum_x_values_apartments > 100:
+                    return False
+
+                # Check x values for multi-family houses (at indices 4 and 6)
+                sum_x_values_houses = numbers[4] + numbers[6]
+                if any(x < 0 or x > 100 for x in [numbers[4], numbers[6]]) or sum_x_values_houses > 100:
+                    return False
+
+                # Check y values (at indices 1, 3, 5, 7)
+                for i in range(1, len(numbers), 2):
+                    if numbers[i] < 25 or numbers[i] > 100:
+                        return False
+
+                return True
+
+            
+            #check policy
+            if not check_policy_numbers(my_policy_nums):
+                st.warning(unit_size_range_error[lin])
+                st.stop()
+
             my_unit_size_policy = {
-                'multi-family-house': [my_policy_nums[0], my_policy_nums[1], my_policy_nums[2], my_policy_nums[3]],
-                'apartment-condo': [my_policy_nums[4], my_policy_nums[5], my_policy_nums[6], my_policy_nums[7]]
+                'apartment-condo': [my_policy_nums[0], my_policy_nums[1], my_policy_nums[2], my_policy_nums[3]],
+                'multi-family-house': [my_policy_nums[4], my_policy_nums[5], my_policy_nums[6], my_policy_nums[7]]
             }
             return my_unit_size_policy
         
@@ -419,6 +432,7 @@ if auth_check:
                 tot_gfa = sim_df['volume'].sum()
                 plan_gfa = sum(item.get('gfa', 0) for item in residential_buildings_dict)
                 cons_share = round(tot_gfa / plan_gfa * 100,2)
+                avg_unit_size = round(sim_df.loc[sim_df['avg_unit_size'] != 0]['avg_unit_size'].mean(),0)
 
                 #simpson div index
                 def sdi(data: list):
@@ -440,8 +454,10 @@ if auth_check:
                 m1,m2,m3,m4 = st.columns(4)
                 yr = ['v','yr']
                 m1.metric(label=f"{pop_growth_text[lin]}, {pre_con_sim_time[1]} {yr[lin]}", value=f"{tot_pop:.0f}", delta=f"{cons_share:.0f} %") #m²
-                m2.metric(label=segregation_index[lin], value=f"{seg_ero}", delta=f"D={seg_ind}")
-                m3.metric(label=custom_metric_text[lin], value=42, delta=+3.14)
+                m2.metric(label=avg_unit_size_title[lin],value=avg_unit_size)
+                m3.metric(label=segregation_index[lin], value=f"{seg_ero}", delta=f"D={seg_ind}")
+                m4.metric(label=custom_metric_text[lin], value=42, delta=+3.14)
+                
 
                 #more info
                 st.success(more_info_text[lin])
