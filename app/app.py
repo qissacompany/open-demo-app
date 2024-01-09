@@ -144,8 +144,8 @@ if auth_check:
     plan_selection = ['Lataa viitesuunnitelma','Load master plan']
     slider_selection = ['Tee mitoituskonsepti','Prepare volume concept']
     file_uploader_title = ['Lataa suunnitelma','Load plan']
-    uploaded_file_warning_zip = ['Suunnitelma tulee olla shapefile-muodossa pakattuna zip-tiedostoon.',
-                                 'Plan must be in shapefile-format in zip-file']
+    uploaded_file_warning_zip = ["Suunnitelma tulee olla shapefile muodossa ('buildings.shp'/'network.shp') pakattuna zip-tiedostoon.",
+                                 "Plan must be in shapefile-format ('buildings.shp'/'network.shp') in zip-file"]
     uploaded_file_warning_buildings = ['Ei rakennuksia datassa',
                                         'No buildings in data']
     uploaded_file_warning_network = ['Ei verkostoa datassa',
@@ -242,6 +242,11 @@ if auth_check:
                 else:
                     st.warning(uploaded_file_warning_zip[lin])
                 
+                #check extracted..
+                if any(v is None for v in [buildings, plan_name]):
+                    st.warning(uploaded_file_warning_zip[lin])
+                    st.stop()
+                    
                 #set ups
                 st.subheader(plan_name)
                 s1,s2 = st.columns(2)
