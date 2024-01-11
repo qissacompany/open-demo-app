@@ -1,6 +1,7 @@
 #app.py
 import streamlit as st
 import pandas as pd
+import geopandas as gpd
 import datetime
 import re
 import open_utils, qissa_utils, viz
@@ -59,7 +60,7 @@ add_bg_image(client_bg_image_url)
 #LOCAT
 client_name = ["[Qissa Oy](https://qissa.fi)",
                "[By Qissa Company](https://qissa.fi)"]
-client_app_name = ["Demo V1","Demo App V1"]
+client_app_name = ["Demo V1.1","Demo App V1"]
 qissa_footer_badge_text = ["Kaupunkiarkkitehtuurin_analytiikkaa",
                       "Urban_architectural_analytics"]
 signin_text = ['Kirjaudu sisään!','Sign in!']
@@ -74,10 +75,12 @@ tab_titles = [['Väestökasvu','Ihmisvirrat','Hiilijalanjälki','..Tai mikä vai
               ['Population growth','People flows','Corbon footprint','..Or any client based analytics you need!']]
 
 not_plan_warning = [':point_up: Tee tai tuo ensin suunnitelma!',':point_up: Upload or create a plan to get base analytics!']
+not_network_warning = ['Ihmisvirta-analyysi edellyttää viitesuunnitelmaa, jossa on verkosto.','People flow analysis needs network.']
 not_available_warning = ['Lisää analytiikkateemoja tarpeen mukaan! :muscle:',
                          'Get more analytics in your app as needed! :muscle:']
 more_info_text = ['Pyydä lisätietoja tai sovi esittely :point_right: office@qissa.fi',
                   'For more info ask anything :point_right: office@qissa.fi']
+api_connection_error = ['Ei API-yhteyttä','API-connection error']
 
 # ------- HEADER -----------
 
@@ -180,19 +183,23 @@ if auth_check:
     cols_set_checkbox_title = ['Tiedot asetettu','Data source ok']
     fix_value_sources_text = ['Korjaa tietolähteet','Fix data sources']
 
-    #for analysis
+    #for simulation
     analysis_part_subheader = ['Analyysit','Analysis']
     no_data_source_warning = ['Datalähdettä ei ole valittu.','No data source set']
     no_residential_buildings = ['Ei asuinrakennuksia','No residential buildings']
     run_analysis_button = ['Tee analyysi','Run analysis']
     pop_sim_expander_title = ['Rakentaminen ja väestökehitys','Construction and population growth']
-    sim_data_expander_title = ['Simulointidata','Simulation data']
+    footheat_expander_title = ['Aktiivisimmat sijainnit','People flow locations']
 
     #for metrics
     pop_growth_text = ['Väestökasvu','Population growth']
     avg_unit_size_title = ['Asuntojen keskikoko','Average unit size']
     segregation_index = ['Segregaatioindeksi','Segregation index']
     custom_metric_text = ['Tai mikä vain asiakaskohtainen mittari..','Or any client based metrics..']
+
+    #for footheat
+    footheat_caption_text = ['Ihmisvirta-analyysillä voi arvioida kävelyvirroiltaan aktiivisimmat sijainnit rakentamisen volyymin tai palvelurakenteen ja reitistön keskeisyyden perusteella.',
+                             'People flow analysis estimates active locations in terms of pedestrian flows based on building or service volumes and network centrality.']
 
     #data source expander
     with st.expander(data_source_expander_title[lin], expanded=True):
@@ -247,7 +254,7 @@ if auth_check:
                     st.warning(uploaded_file_warning_zip[lin])
                     st.stop()
                     
-                #set ups
+                #setups
                 st.subheader(plan_name)
                 s1,s2 = st.columns(2)
                 map_holder = s2.empty()
@@ -293,7 +300,7 @@ if auth_check:
                 demo_file = qissa_utils.get_demo_file(demo_name='demo_plan_V1')
                 buildings, plan_name = qissa_utils.extract_shapefiles_and_filenames_from_zip(demo_file,'Polygon')
                 network, net_name = qissa_utils.extract_shapefiles_and_filenames_from_zip(demo_file,'LineString')
-                fig_map = viz.plot_masterplan_map(bu=buildings,net=network, hover_columns=['kaava','kerrosala'])
+                fig_map = viz.plot_masterplan_map(bu=buildings,net=network,zoom=15,hover_columns=['kaava','kerrosala'])
                 
                 st.subheader('Demo')
                 st.plotly_chart(fig_map, use_container_width=True, config = {'displayModeBar': False})
@@ -303,6 +310,8 @@ if auth_check:
                                  'ar':'multi-family-house',
                                  'ak':'apartment-condo'
                                 }
+                my_gfa = "kerrosala"
+
                 d1,d2 = st.columns(2)
                 num_comp = d1.slider(num_of_con_companies_title[lin], 1, 5, 2, step=1)
                 pre_con_sim_time = d2.slider(pre_con_and_sim_time_title[lin], 1, 30, [3,20], step=1)
@@ -432,7 +441,11 @@ if auth_check:
                     "household_shares_estimates": None
                 }
 
-                CONSIM_respond = qissa_utils.consim_call(params=my_params)
+                try:
+                    CONSIM_respond = qissa_utils.consim_call(params=my_params)
+                except:
+                    st.error(api_connection_error[lin])
+                    st.stop()
                 
                 sim_df = pd.DataFrame(CONSIM_respond.get('body'))
 
@@ -481,7 +494,45 @@ if auth_check:
         
             
     with tab2:
-        st.warning(not_available_warning[lin])
+        if network is not None:
+            with st.expander(footheat_expander_title[lin],expanded=True):
+                network_json = qissa_utils.prepare_network_json(buildings_gdf=buildings, reso=5,
+                                                network_gdf=network,
+                                                volume_col=my_gfa)
+                
+                try:
+                    footheat_json = qissa_utils.footheat_call(params=network_json)
+                except:
+                    st.error(api_connection_error[lin])
+                    st.stop()
+
+                def footheat_to_gdf(footheat):
+                    data = []
+                    for key, value in footheat.items():
+                        coords = value['coords']
+                        centrality = value['footheat']
+                        data.append({'lat': coords[1], 'lon': coords[0], 'footheat': centrality})
+                    
+                    df = pd.DataFrame(data)
+                    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.lon, df.lat))
+                    return gdf
+                
+                footheat_data = footheat_json.get('body', {})
+                
+                footheat_gdf = footheat_to_gdf(footheat_data)
+                
+                footheat_fig = viz.plot_footheatmap(footheat_gdf,weight_col='footheat',zoom=15,
+                                                    bu=buildings,
+                                                    net=network,
+                                                    scale=False)
+                st.plotly_chart(footheat_fig, use_container_width=True, config = {'displayModeBar': False} )
+                st.caption(footheat_caption_text[lin])
+
+                #more info
+                st.success(more_info_text[lin])
+        else:
+            st.warning(not_network_warning[lin])
+        
     with tab3:
         st.warning(not_available_warning[lin])
     with tab4:
