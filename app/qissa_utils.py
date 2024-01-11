@@ -3,15 +3,20 @@ import requests
 import boto3
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 import zipfile
 import os
 import io
 import tempfile
 import pyproj
+from shapely.geometry import LineString, Point
+from scipy.spatial import cKDTree
 
 #keys
 consim_token = st.secrets["qissa_api"]['consim_token']
 consim_url = st.secrets["qissa_api"]['consim_url']
+footheat_token = st.secrets["qissa_api"]['footheat_token']
+footheat_url = st.secrets["qissa_api"]['footheat_url']
 
 bucket_key = st.secrets["client_bucket"]['BUCKET_idkey']
 bucket_secret = st.secrets["client_bucket"]['BUCKET_secretkey']
@@ -33,6 +38,23 @@ def consim_call(params: dict):
     else:
         st.warning(f"API-call error: {response.status_code}, {response.text}")
         return None
+
+@st.cache_data(max_entries=1)
+def footheat_call(params: dict):
+    payload = params    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Basic {footheat_token}"
+    }
+    response = requests.post(footheat_url, headers=headers, json=payload)
+
+    if response.status_code == 200:
+        data = response.json()
+        return data
+    else:
+        st.warning(f"API-call error: {response.status_code}, {response.text}")
+        return None
+    
 
 def get_demo_file(demo_name, folder="demo_plans", bucket_name=bucket_name):
     zip_file_name = f"{folder}/{demo_name}.zip"
@@ -78,3 +100,58 @@ def extract_shapefiles_and_filenames_from_zip(file, geom_type):
             return data, filename
     
     return None, None
+
+
+def prepare_network_json(buildings_gdf, network_gdf, reso=5, volume_col='volume'):
+    
+    # Densify network geometry
+    def densify_geometry(line, dist=reso):
+        if isinstance(line, LineString) and line.length > 0:
+            num_segments = max(1, int(line.length // dist))
+            return [LineString([line.interpolate(dist * i), line.interpolate(min(dist * (i + 1), line.length))]) for i in range(num_segments)]
+        return []
+
+    # Filter out non-LineString geometries and empty geometries from network_gdf
+    network_gdf = network_gdf[network_gdf.geometry.type == 'LineString']
+    network_gdf = network_gdf[network_gdf.geometry.length > 0]
+
+    # Apply densify_geometry
+    densified_lines = network_gdf.geometry.apply(lambda x: densify_geometry(x)).explode().reset_index(drop=True)
+
+    # Check for non-LineString geometries
+    if not all(isinstance(item, LineString) for item in densified_lines):
+        invalid_items = [type(item) for item in densified_lines if not isinstance(item, LineString)]
+        raise ValueError(f"Densification resulted in non-LineString geometries: {invalid_items}")
+
+    # Convert the densified linestring segments into points
+    points = [Point(coord) for line in densified_lines for coord in line.coords]
+
+    # Create GeoDataFrame for points
+    points_gdf = gpd.GeoDataFrame(geometry=points, crs=network_gdf.crs)
+
+    # Prepare data for KDTree
+    points_data = np.array([point.coords[0] for point in points_gdf.geometry])
+
+    tree = cKDTree(points_data)
+
+    # Find nearest network point for each building
+    building_coords = np.array([building.centroid.coords[0] for building in buildings_gdf.geometry])
+    _, indexes = tree.query(building_coords)
+
+    # Aggregate building volumes by nearest network point
+    buildings_gdf['nearest_point'] = indexes
+    aggregated_volumes = buildings_gdf.groupby('nearest_point')[volume_col].sum()
+
+    # Prepare network points data with aggregated volumes and coordinates
+    network_points = [{'id': i, 'volume': aggregated_volumes.get(i, 0), 'coords': points[i].coords[0]} for i in range(len(points))]
+
+    # Prepare network edges data
+    network_edges = [{'start_id': i, 'end_id': i+1} for i in range(len(points) - 1)]
+
+    # Compile final JSON
+    network_json = {
+        "points": network_points,
+        "edges": network_edges
+    }
+
+    return network_json

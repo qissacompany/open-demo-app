@@ -8,6 +8,7 @@ numpy==1.26.1
 
 #spatial
 geopandas==0.14.0
+scipy==1.11.4
 
 #data
 geocoder==1.38.1
