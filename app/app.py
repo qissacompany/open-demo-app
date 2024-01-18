@@ -60,7 +60,7 @@ add_bg_image(client_bg_image_url)
 #LOCAT
 client_name = ["[Qissa Oy](https://qissa.fi)",
                "[By Qissa Company](https://qissa.fi)"]
-client_app_name = ["Demo V1.1","Demo App V1"]
+client_app_name = ["Demo V1.2","Demo App V1.2"]
 qissa_footer_badge_text = ["Kaupunkiarkkitehtuurin_analytiikkaa",
                       "Urban_architectural_analytics"]
 signin_text = ['Kirjaudu sisään!','Sign in!']
@@ -494,11 +494,12 @@ if auth_check:
         
             
     with tab2:
-        if network is not None:
-            with st.expander(footheat_expander_title[lin],expanded=True):
-                network_json = qissa_utils.prepare_network_json(buildings_gdf=buildings, reso=5,
+        if network is not None and my_gfa != no_value_text[lin]:
+            network_json = qissa_utils.prepare_network_json(buildings_gdf=buildings, reso=5,
                                                 network_gdf=network,
                                                 volume_col=my_gfa)
+            
+            with st.expander(footheat_expander_title[lin],expanded=True):
                 
                 try:
                     footheat_json = qissa_utils.footheat_call(params=network_json)

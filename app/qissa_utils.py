@@ -77,6 +77,11 @@ def extract_shapefiles_and_filenames_from_zip(file, geom_type):
             if filename.endswith(".shp"):
                 shapefile_path = os.path.join(tmp_dir, filename)
                 data = gpd.read_file(shapefile_path)
+
+                # Convert columns with numeric strings to numeric values
+                for col in data.columns:
+                    if data[col].dtype == object:  # Check if column type is object, often indicating strings
+                        data[col] = pd.to_numeric(data[col], errors='ignore')  # Convert to numeric if possible
                 
                 # Collect files with the expected geometry type
                 if any(data.geometry.geom_type == geom_type):
@@ -103,7 +108,21 @@ def extract_shapefiles_and_filenames_from_zip(file, geom_type):
 
 
 def prepare_network_json(buildings_gdf, network_gdf, reso=5, volume_col='volume'):
-    
+    #helper for api serialization
+    def convert_numpy_to_python(item):
+        if isinstance(item, np.integer):
+            return int(item)
+        elif isinstance(item, np.floating):
+            return float(item)
+        elif isinstance(item, np.ndarray):
+            return item.tolist()
+        elif isinstance(item, list):
+            return [convert_numpy_to_python(subitem) for subitem in item]
+        elif isinstance(item, dict):
+            return {key: convert_numpy_to_python(val) for key, val in item.items()}
+        else:
+            return item
+        
     # Densify network geometry
     def densify_geometry(line, dist=reso):
         if isinstance(line, LineString) and line.length > 0:
@@ -142,16 +161,22 @@ def prepare_network_json(buildings_gdf, network_gdf, reso=5, volume_col='volume'
     buildings_gdf['nearest_point'] = indexes
     aggregated_volumes = buildings_gdf.groupby('nearest_point')[volume_col].sum()
 
+    # Ensure that all numeric data is in a JSON serializable format
+    aggregated_volumes = aggregated_volumes.map(lambda x: int(x) if pd.notnull(x) else 0)
+
     # Prepare network points data with aggregated volumes and coordinates
-    network_points = [{'id': i, 'volume': aggregated_volumes.get(i, 0), 'coords': points[i].coords[0]} for i in range(len(points))]
+    network_points = [{'id': int(i), 'volume': aggregated_volumes.get(i, 0), 'coords': [float(coord) for coord in points[i].coords[0]]} for i in range(len(points))]
 
     # Prepare network edges data
-    network_edges = [{'start_id': i, 'end_id': i+1} for i in range(len(points) - 1)]
+    network_edges = [{'start_id': int(i), 'end_id': int(i+1)} for i in range(len(points) - 1)]
 
     # Compile final JSON
     network_json = {
         "points": network_points,
         "edges": network_edges
     }
+    
+    # Convert all NumPy data types to native Python types for JSON serialization
+    network_json = convert_numpy_to_python(network_json)
 
     return network_json
