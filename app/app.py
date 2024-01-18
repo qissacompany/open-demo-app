@@ -495,7 +495,7 @@ if auth_check:
             
     with tab2:
         if network is not None and my_gfa != no_value_text[lin]:
-            network_json = qissa_utils.prepare_network_json(buildings_gdf=buildings, reso=5,
+            network_json = qissa_utils.prepare_network_json(buildings_gdf=buildings, reso=50, search_radius=50,
                                                 network_gdf=network,
                                                 volume_col=my_gfa)
             

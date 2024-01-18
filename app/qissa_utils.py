@@ -10,7 +10,6 @@ import io
 import tempfile
 import pyproj
 from shapely.geometry import LineString, Point
-from scipy.spatial import cKDTree
 
 #keys
 consim_token = st.secrets["qissa_api"]['consim_token']
@@ -107,7 +106,8 @@ def extract_shapefiles_and_filenames_from_zip(file, geom_type):
     return None, None
 
 
-def prepare_network_json(buildings_gdf, network_gdf, reso=5, volume_col='volume'):
+def prepare_network_json(buildings_gdf, network_gdf, reso=50, volume_col='volume', search_radius=50):
+
     #helper for api serialization
     def convert_numpy_to_python(item):
         if isinstance(item, np.integer):
@@ -123,16 +123,17 @@ def prepare_network_json(buildings_gdf, network_gdf, reso=5, volume_col='volume'
         else:
             return item
         
-    # Densify network geometry
+    # Densify network geometry function
     def densify_geometry(line, dist=reso):
         if isinstance(line, LineString) and line.length > 0:
             num_segments = max(1, int(line.length // dist))
             return [LineString([line.interpolate(dist * i), line.interpolate(min(dist * (i + 1), line.length))]) for i in range(num_segments)]
         return []
 
-    # Filter out non-LineString geometries and empty geometries from network_gdf
-    network_gdf = network_gdf[network_gdf.geometry.type == 'LineString']
-    network_gdf = network_gdf[network_gdf.geometry.length > 0]
+    # Filter out non-LineString geometries and empty geometries from network_gdf and convert crs to projected
+    projected_crs = network_gdf.estimate_utm_crs()
+    network_gdf = network_gdf[network_gdf.geometry.type == 'LineString'].to_crs(projected_crs)
+    network_gdf = network_gdf[network_gdf.geometry.length > 0].to_crs(projected_crs)
 
     # Apply densify_geometry
     densified_lines = network_gdf.geometry.apply(lambda x: densify_geometry(x)).explode().reset_index(drop=True)
@@ -145,30 +146,28 @@ def prepare_network_json(buildings_gdf, network_gdf, reso=5, volume_col='volume'
     # Convert the densified linestring segments into points
     points = [Point(coord) for line in densified_lines for coord in line.coords]
 
-    # Create GeoDataFrame for points
-    points_gdf = gpd.GeoDataFrame(geometry=points, crs=network_gdf.crs)
+    # Create GeoDataFrame for points in the projected CRS
+    points_gdf = gpd.GeoDataFrame(geometry=points, crs=projected_crs)
 
-    # Prepare data for KDTree
-    points_data = np.array([point.coords[0] for point in points_gdf.geometry])
+    # Convert buildings_gdf to the same projected CRS
+    buildings_gdf_projected = buildings_gdf.to_crs(projected_crs)
 
-    tree = cKDTree(points_data)
-
-    # Find nearest network point for each building
-    building_coords = np.array([building.centroid.coords[0] for building in buildings_gdf.geometry])
-    _, indexes = tree.query(building_coords)
-
-    # Aggregate building volumes by nearest network point
-    buildings_gdf['nearest_point'] = indexes
-    aggregated_volumes = buildings_gdf.groupby('nearest_point')[volume_col].sum()
-
-    # Ensure that all numeric data is in a JSON serializable format
-    aggregated_volumes = aggregated_volumes.map(lambda x: int(x) if pd.notnull(x) else 0)
+    # Find all buildings within search_radius of each network point in projected CRS
+    aggregated_volumes = {}
+    for idx, point in enumerate(points_gdf.geometry):
+        point_buffer = point.buffer(search_radius)
+        nearby_buildings = buildings_gdf_projected[buildings_gdf_projected.intersects(point_buffer)]
+        total_volume = nearby_buildings[volume_col].sum()
+        aggregated_volumes[idx] = total_volume
+    
+    # Convert points_gdf back to EPSG:4326 for JSON output
+    points_gdf = points_gdf.to_crs("EPSG:4326")
 
     # Prepare network points data with aggregated volumes and coordinates
-    network_points = [{'id': int(i), 'volume': aggregated_volumes.get(i, 0), 'coords': [float(coord) for coord in points[i].coords[0]]} for i in range(len(points))]
+    network_points = [{'id': int(i), 'volume': aggregated_volumes.get(i, 0), 'coords': [float(coord) for coord in points_gdf.iloc[i].geometry.coords[0]]} for i in range(len(points_gdf))]
 
     # Prepare network edges data
-    network_edges = [{'start_id': int(i), 'end_id': int(i+1)} for i in range(len(points) - 1)]
+    network_edges = [{'start_id': int(i), 'end_id': int(i+1)} for i in range(len(points_gdf) - 1)]
 
     # Compile final JSON
     network_json = {
