@@ -482,9 +482,8 @@ if auth_check:
                 m1,m2,m3,m4 = st.columns(4)
                 yr = ['v','yr']
                 m1.metric(label=f"{pop_growth_text[lin]}, {pre_con_sim_time[1]} {yr[lin]}", value=f"{tot_pop:.0f}", delta=f"{cons_share:.0f} %") #m²
-                m2.metric(label=avg_unit_size_title[lin],value=avg_unit_size)
-                m3.metric(label=segregation_index[lin], value=f"{seg_ero}", delta=f"D={seg_ind}")
-                m4.metric(label=custom_metric_text[lin], value=42, delta=+3.14)
+                m2.metric(label=segregation_index[lin], value=f"{seg_ero}", delta=f"D={seg_ind}")
+                m3.metric(label=custom_metric_text[lin], value=42, delta=+3.14)
                 
 
                 #more info
@@ -522,7 +521,7 @@ if auth_check:
                 
                 footheat_gdf = footheat_to_gdf(footheat_data)
                 
-                footheat_fig = viz.plot_footheatmap(footheat_gdf,weight_col='footheat',zoom=15,
+                footheat_fig = viz.plot_footheat_map(footheat_gdf,weight_col='footheat',zoom=15,
                                                     bu=buildings,
                                                     net=network,
                                                     scale=False)

@@ -215,35 +215,55 @@ def plot_masterplan_map(bu,net,hover_columns=None,zoom=14):
     )
     return fig
 
-def plot_footheatmap(point_gdf,weight_col,bu=None,net=None,zoom=14,scale=False):
+def plot_footheat_map(point_gdf,weight_col,bu=None,net=None,zoom=14,scale=False,heat=True):
 
     # Normalize the centrality values to 0-1 scale for color mapping
     min_val = point_gdf[weight_col].min()
     max_val = point_gdf[weight_col].max()
     point_gdf['normalized_centrality'] = round((point_gdf[weight_col] - min_val) / (max_val - min_val),3)
-
-    # Calculate quantiles on the normalized centrality
     quantiles = point_gdf['normalized_centrality'].quantile([0.25, 0.5, 0.75]).to_list()
 
-    # Define custom color scale with RGBA values for opacity
-    custom_color_scale = [
-        (0.00, "rgba(0, 0, 255, 0.0)"),   # Blue
-        (quantiles[0], "rgba(0, 128, 0, 0.0)"),   # Green
-        (quantiles[1], "rgba(255, 255, 0, 0.1)"), # Yellow
-        (quantiles[2], "rgba(255, 165, 0, 0.5)"), # Orange
-        (1.00, "rgba(255, 0, 0, 0.8)")    # Red
-    ]
-
-    # Scatter plot with custom color scale
-    fig = px.scatter_mapbox(point_gdf, 
-                            lat='lat', 
-                            lon='lon',
-                            size=weight_col, 
-                            color=weight_col,
-                            color_continuous_scale=custom_color_scale,
-                            size_max=25, 
+    if heat:
+        # Define custom color scale with RGBA values for opacity
+        custom_color_scale = [
+            (0.00, "rgba(0, 0, 255, 0.0)"),   # Blue
+            (quantiles[0], "rgba(0, 128, 0, 0.0)"),   # Green
+            (quantiles[1], "rgba(255, 255, 0, 0.1)"), # Yellow
+            (quantiles[2], "rgba(255, 165, 0, 0.5)"), # Orange
+            (1.00, "rgba(255, 0, 0, 0.8)")    # Red
+        ]
+        lat = point_gdf.unary_union.centroid.y
+        lng = point_gdf.unary_union.centroid.x
+        fig = px.density_mapbox(point_gdf, 
+                            lat=point_gdf.geometry.y, 
+                            lon=point_gdf.geometry.x,
+                            z=weight_col, 
+                            radius=40,
+                            center={"lat": lat, "lon": lng}, 
                             zoom=zoom,
-                            mapbox_style=my_style)
+                            width=1200,
+                            height=700,
+                            color_continuous_scale=custom_color_scale,
+                            mapbox_style='carto-positron' # For the sake of this example, I'm using a public style.
+                            )
+    else:
+        # Define custom color scale with RGBA values for opacity
+        custom_color_scale = [
+            (0.00, "rgba(0, 0, 255, 0.0)"),   # Blue
+            (quantiles[0], "rgba(0, 128, 0, 0.0)"),   # Green
+            (quantiles[1], "rgba(255, 255, 0, 0.1)"), # Yellow
+            (quantiles[2], "rgba(255, 165, 0, 0.5)"), # Orange
+            (1.00, "rgba(255, 0, 0, 0.8)")    # Red
+        ]
+        fig = px.scatter_mapbox(point_gdf, 
+                                lat='lat', 
+                                lon='lon',
+                                size=weight_col, 
+                                color=weight_col,
+                                color_continuous_scale=custom_color_scale,
+                                size_max=25, 
+                                zoom=zoom,
+                                mapbox_style=my_style)
     
     
     fig.update_layout(coloraxis_showscale=scale,margin={"r": 0, "t": 0, "l": 0, "b": 0}, height=700)
