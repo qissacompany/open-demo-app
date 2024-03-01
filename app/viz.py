@@ -244,7 +244,7 @@ def plot_footheat_map(point_gdf,weight_col,bu=None,net=None,zoom=14,scale=False,
                             width=1200,
                             height=700,
                             color_continuous_scale=custom_color_scale,
-                            mapbox_style='carto-positron' # For the sake of this example, I'm using a public style.
+                            mapbox_style=my_style
                             )
     else:
         # Define custom color scale with RGBA values for opacity
