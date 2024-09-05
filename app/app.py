@@ -72,7 +72,7 @@ signed_in_subingress = ['Jokainen projektiappi räätälöidään asiakkaan tai 
                         'Each project app is tailored & updated by the brand image and analysis needs of the client or project. :ok_hand:']
 
 tab_titles = [['Väestökasvu','Ihmisvirrat','Hiilijalanjälki','..Tai mikä vain asiakaskohtainen analyysitarve!'],
-              ['Population growth','People flows','Corbon footprint','..Or any client based analytics you need!']]
+              ['Population growth','People flow','Carbon footprint','..Or any client based analytics you need!']]
 
 not_plan_warning = [':point_up: Tee tai tuo ensin suunnitelma!',':point_up: Upload or create a plan to get base analytics!']
 not_network_warning = ['Ihmisvirta-analyysi edellyttää viitesuunnitelmaa, jossa on verkosto.','People flow analysis needs network.']
