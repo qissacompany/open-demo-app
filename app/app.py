@@ -136,7 +136,7 @@ else:
 
 if auth_check:
     if campaign:
-        if not open_utils.check_test_query_count(max=25,lin=lin):
+        if not open_utils.check_test_query_count(max=50,lin=lin):
             st.stop()
 
     #LOCAT
