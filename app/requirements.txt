@@ -8,6 +8,8 @@ numpy==1.26.1
 
 #spatial
 geopandas==0.14.0
+pyproj==3.6.0
+fiona==1.9.4
 scipy==1.11.4
 
 #data
