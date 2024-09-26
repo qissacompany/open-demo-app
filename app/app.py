@@ -4,6 +4,7 @@ import pandas as pd
 import geopandas as gpd
 import datetime
 import re
+import random
 import open_utils, qissa_utils, viz
 
 # --------- CLIENT CONFIGS ---------------
@@ -60,7 +61,7 @@ add_bg_image(client_bg_image_url)
 #LOCAT
 client_name = ["[Qissa Oy](https://qissa.fi)",
                "[By Qissa Company](https://qissa.fi)"]
-client_app_name = ["Demo V1.2","Demo App V1.2"]
+client_app_name = ["Demo V1.2+","Demo App V1.2+"]
 qissa_footer_badge_text = ["Kaupunkiarkkitehtuurin_analytiikkaa",
                       "Urban_architectural_analytics"]
 signin_text = ['Kirjaudu sisään!','Sign in!']
@@ -76,7 +77,7 @@ tab_titles = [['Väestökasvu','Ihmisvirrat','Hiilijalanjälki','..Tai mikä vai
 
 not_plan_warning = [':point_up: Tee tai tuo ensin suunnitelma!',':point_up: Upload or create a plan to get base analytics!']
 not_network_warning = ['Ihmisvirta-analyysi edellyttää viitesuunnitelmaa, jossa on verkosto.','People flow analysis needs network.']
-not_available_warning = ['Lisää analytiikkateemoja tarpeen mukaan! :muscle:',
+not_available_warning = ['Voit lisätä analytiikkateemoja projektiappiisi tarpeen ja hankevaiheen mukaan! :muscle:',
                          'Get more analytics in your app as needed! :muscle:']
 more_info_text = ['Pyydä lisätietoja tai sovi esittely :point_right: office@qissa.fi',
                   'For more info ask anything :point_right: office@qissa.fi']
@@ -113,7 +114,7 @@ st.markdown('###')
 singin_holder = st.container()
 
 #check campaign & auth
-url_params = st.experimental_get_query_params()
+url_params = st.query_params
 try:
     campaign = url_params.get('campaign')[0]
 except:
@@ -321,11 +322,11 @@ if auth_check:
             st.markdown('---')
             st.subheader(volume_concept_title[lin])
             s1,s2 = st.columns(2)    
-            one_family_house_vol = s1.slider(one_family_house_vol_title[lin], 0, 10000, 2000, step=1000)
+            one_family_house_vol = s1.slider(one_family_house_vol_title[lin], 0, 20000, 7000, step=1000)
             one_family_house_pro = s2.slider(one_family_house_pro_title[lin], 50, 200, 120, step=10)
-            multi_family_house_vol = s1.slider(multi_family_house_vol_title[lin], 0, 10000, 3000, step=1000)
-            multi_family_house_pro = s2.slider(multi_family_house_pro_title[lin], 200, 2000, 500, step=100)
-            apartment_condo_vol = s1.slider(apartment_building_vol_title[lin], 0, 20000, 6000, step=1000)
+            multi_family_house_vol = s1.slider(multi_family_house_vol_title[lin], 0, 30000, 15000, step=1000)
+            multi_family_house_pro = s2.slider(multi_family_house_pro_title[lin], 200, 2000, 700, step=100)
+            apartment_condo_vol = s1.slider(apartment_building_vol_title[lin], 0, 50000, 30000, step=1000)
             apartment_condo_pro = s2.slider(apartment_building_pro_title[lin], 2000, 7000, 3000, step=1000)
             num_comp = s1.slider(num_of_con_companies_title[lin], 1, 5, 2, step=1)
             pre_con_sim_time = s2.slider(pre_con_and_sim_time_title[lin], 1, 30, [3,10], step=1)
@@ -343,7 +344,7 @@ if auth_check:
                 }
             
             #func to gen projects from volumes
-            def generate_projects(total_volumes: dict, project_sizes: dict):
+            def generate_projects(total_volumes: dict, project_sizes: dict, variation_factor: float = 0.1):
                 buildings = []
 
                 for building_type, total_volume in total_volumes.items():
@@ -351,9 +352,12 @@ if auth_check:
                     num_projects = total_volume // avg_project_size
 
                     for _ in range(num_projects):
+                        gfa_variation = avg_project_size * variation_factor
+                        gfa = round(random.uniform(avg_project_size - gfa_variation, avg_project_size + gfa_variation),-1)
+
                         buildings.append({
                             'type': building_type,
-                            'gfa': avg_project_size
+                            'gfa': gfa
                         })
                 
                 return buildings
